@@ -1,0 +1,39 @@
+@model ProductListViewModel
+@{
+    ViewData["Title"] = "商品列表";
+}
+
+<h1 class="h3 mb-3">商品列表</h1>
+
+<table class="table table-hover align-middle">
+    <thead>
+        <tr>
+            <th>SKU</th>
+            <th>名稱</th>
+            <th class="text-end">單價</th>
+            <th class="text-end">現有庫存</th>
+            <th>狀態</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var product in Model.Products)
+        {
+            <tr>
+                <td>@product.Sku</td>
+                <td>@product.Name</td>
+                <td class="text-end">@Money(product.UnitPrice)</td>
+                <td class="text-end">@product.StockQuantity</td>
+                <td>
+                    @if (product.IsActive)
+                    {
+                        <span class="badge bg-success">販售中</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">已停售</span>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

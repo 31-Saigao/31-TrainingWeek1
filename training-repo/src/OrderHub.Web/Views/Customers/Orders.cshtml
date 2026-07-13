@@ -1,0 +1,44 @@
+@model CustomerOrdersViewModel
+@{
+    ViewData["Title"] = $"{Model.CustomerName} 的訂單";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">
+        @Model.CustomerName 的訂單
+        <span class="badge @TierBadgeClass(Model.Tier)">@TierLabel(Model.Tier)</span>
+    </h1>
+    <a class="btn btn-outline-secondary" asp-action="Index">回客戶列表</a>
+</div>
+
+<p class="text-muted">@Model.CustomerEmail</p>
+
+<table class="table table-hover align-middle">
+    <thead>
+        <tr>
+            <th>編號</th>
+            <th>狀態</th>
+            <th class="text-end">金額</th>
+            <th class="text-end">品項數</th>
+            <th>建立時間</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model.Orders.Count == 0)
+        {
+            <tr>
+                <td colspan="5" class="text-center text-muted py-4">此客戶尚無訂單</td>
+            </tr>
+        }
+        @foreach (var order in Model.Orders)
+        {
+            <tr>
+                <td><a asp-controller="Orders" asp-action="Details" asp-route-id="@order.Id">#@order.Id</a></td>
+                <td><span class="badge @StatusBadgeClass(order.Status)">@StatusLabel(order.Status)</span></td>
+                <td class="text-end">@Money(order.Total)</td>
+                <td class="text-end">@order.ItemCount</td>
+                <td>@LocalTime(order.CreatedAt)</td>
+            </tr>
+        }
+    </tbody>
+</table>

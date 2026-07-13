@@ -1,0 +1,108 @@
+@model CreateOrderViewModel
+@{
+    ViewData["Title"] = "建立訂單";
+}
+
+<h1 class="h3 mb-3">建立訂單</h1>
+
+<form asp-action="Create" method="post" id="create-order-form">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="mb-3 col-md-6">
+        <label asp-for="CustomerId" class="form-label"></label>
+        <select asp-for="CustomerId" asp-items="Model.CustomerOptions" class="form-select">
+            <option value="">-- 請選擇客戶 --</option>
+        </select>
+        <span asp-validation-for="CustomerId" class="text-danger"></span>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>商品明細</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="add-line">新增一列</button>
+        </div>
+        <div class="card-body">
+            <table class="table align-middle mb-0" id="lines-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60%">商品</th>
+                        <th style="width: 25%">數量</th>
+                        <th style="width: 15%"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < Model.Lines.Count; i++)
+                    {
+                        <tr class="line-row">
+                            <td>
+                                <select asp-for="Lines[i].ProductId" asp-items="Model.ProductOptions" class="form-select">
+                                    <option value="">-- 請選擇商品 --</option>
+                                </select>
+                                <span asp-validation-for="Lines[i].ProductId" class="text-danger"></span>
+                            </td>
+                            <td>
+                                <input asp-for="Lines[i].Quantity" type="number" min="1" class="form-control" />
+                                <span asp-validation-for="Lines[i].Quantity" class="text-danger"></span>
+                            </td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-line">移除</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">送出訂單</button>
+    <a class="btn btn-outline-secondary" asp-action="Index">取消</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const table = document.querySelector('#lines-table tbody');
+            const addButton = document.getElementById('add-line');
+
+            function reindexRows() {
+                table.querySelectorAll('tr.line-row').forEach(function (row, index) {
+                    row.querySelectorAll('select, input, span[data-valmsg-for]').forEach(function (el) {
+                        ['name', 'id', 'data-valmsg-for'].forEach(function (attr) {
+                            const value = el.getAttribute(attr);
+                            if (value) {
+                                el.setAttribute(attr, value
+                                    .replace(/Lines\[\d+\]/, 'Lines[' + index + ']')
+                                    .replace(/Lines_\d+__/, 'Lines_' + index + '__'));
+                            }
+                        });
+                    });
+                });
+            }
+
+            addButton.addEventListener('click', function () {
+                const rows = table.querySelectorAll('tr.line-row');
+                const template = rows[rows.length - 1];
+                const clone = template.cloneNode(true);
+                clone.querySelector('select').value = '';
+                clone.querySelector('input').value = 1;
+                clone.querySelectorAll('span[data-valmsg-for]').forEach(function (span) {
+                    span.textContent = '';
+                });
+                table.appendChild(clone);
+                reindexRows();
+            });
+
+            table.addEventListener('click', function (e) {
+                if (!e.target.classList.contains('remove-line')) return;
+                const rows = table.querySelectorAll('tr.line-row');
+                if (rows.length <= 1) {
+                    alert('訂單至少需要一項商品');
+                    return;
+                }
+                e.target.closest('tr.line-row').remove();
+                reindexRows();
+            });
+        })();
+    </script>
+}

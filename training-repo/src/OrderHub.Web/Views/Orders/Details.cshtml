@@ -1,0 +1,78 @@
+@model OrderDetailsViewModel
+@{
+    ViewData["Title"] = $"訂單 #{Model.Id}";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">
+        訂單 #@Model.Id
+        <span class="badge @StatusBadgeClass(Model.Status)">@StatusLabel(Model.Status)</span>
+    </h1>
+    <a class="btn btn-outline-secondary" asp-action="Index">回訂單列表</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">客戶資訊</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <strong>@Model.CustomerName</strong>
+                <span class="badge @TierBadgeClass(Model.CustomerTier)">@TierLabel(Model.CustomerTier)</span>
+            </div>
+            <div class="col-md-4">@Model.CustomerEmail</div>
+            <div class="col-md-4">建立時間：@LocalTime(Model.CreatedAt)</div>
+        </div>
+        <div class="mt-2">
+            <a asp-controller="Customers" asp-action="Orders" asp-route-id="@Model.CustomerId">查看此客戶的所有訂單</a>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">訂單明細</div>
+    <table class="table mb-0 align-middle">
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>商品</th>
+                <th class="text-end">數量</th>
+                <th class="text-end">單價（快照）</th>
+                <th class="text-end">小計</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td>@item.ProductSku</td>
+                    <td>@item.ProductName</td>
+                    <td class="text-end">@item.Quantity</td>
+                    <td class="text-end">@Money(item.UnitPrice)</td>
+                    <td class="text-end">@Money(item.LineTotal)</td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="4" class="text-end">小計</td>
+                <td class="text-end">@Money(Model.Subtotal)</td>
+            </tr>
+            <tr>
+                <td colspan="4" class="text-end">會員折扣（@Model.DiscountRate.ToString("P0")）</td>
+                <td class="text-end">-@Money(Model.DiscountAmount)</td>
+            </tr>
+            <tr class="table-light">
+                <td colspan="4" class="text-end"><strong>應付總額</strong></td>
+                <td class="text-end"><strong>@Money(Model.Total)</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+@if (Model.CanCancel)
+{
+    <form asp-action="Cancel" asp-route-id="@Model.Id" method="post"
+          onsubmit="return confirm('確定要取消訂單 #@Model.Id 嗎？');">
+        <button type="submit" class="btn btn-outline-danger">取消訂單</button>
+    </form>
+}

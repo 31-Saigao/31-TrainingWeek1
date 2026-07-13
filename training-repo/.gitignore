@@ -1,0 +1,22 @@
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+
+# Build outputs
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+# Test results
+TestResults/
+*.trx
+
+# Node (not used, but just in case)
+node_modules/
+
+# Local settings that should not be shared
+*.local.json

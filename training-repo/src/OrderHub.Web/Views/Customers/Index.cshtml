@@ -1,0 +1,32 @@
+@model CustomerListViewModel
+@{
+    ViewData["Title"] = "客戶列表";
+}
+
+<h1 class="h3 mb-3">客戶列表</h1>
+
+<table class="table table-hover align-middle">
+    <thead>
+        <tr>
+            <th>姓名</th>
+            <th>Email</th>
+            <th>會員等級</th>
+            <th>建立時間</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var customer in Model.Customers)
+        {
+            <tr>
+                <td>@customer.Name</td>
+                <td>@customer.Email</td>
+                <td><span class="badge @TierBadgeClass(customer.Tier)">@TierLabel(customer.Tier)</span></td>
+                <td>@LocalTime(customer.CreatedAt)</td>
+                <td>
+                    <a asp-action="Orders" asp-route-id="@customer.Id">查看訂單</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
