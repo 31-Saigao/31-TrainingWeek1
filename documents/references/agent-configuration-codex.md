@@ -10,11 +10,11 @@
 | 檔案                              | 用途                                             | 要不要進 git          |
 | --------------------------------- | ------------------------------------------------ | --------------------- |
 | `AGENTS.md`                       | 專案記憶：agent 每次啟動自動讀的專案說明與慣例   | ✅ 進 git（全隊共用） |
-| `.codex/config.toml`              | 專案層設定：approval / sandbox / hooks           | ✅ 進 git             |
+| `.codex/config.toml`              | 專案層設定：hooks 等（approval / sandbox 在專案層無效） | ✅ 進 git             |
 | `.codex/rules/*.rules`            | 指令規則：哪些指令直接放行、詢問、直接擋掉       | ✅ 進 git             |
 | `.codex/agents/*.toml`            | Subagents：專職的子代理（如 code reviewer）      | ✅ 進 git             |
 | `.agents/skills/<名稱>/SKILL.md`  | Skills：把流程做成可重複觸發的指令               | ✅ 進 git             |
-| `~/.codex/config.toml`            | 個人全域設定：只影響你自己、所有專案             | ❌ 在家目錄，不進 git |
+| `~/.codex/config.toml`            | 個人全域設定：approval / sandbox 等安全設定放這裡 | ❌ 在家目錄，不進 git |
 
 **與 Claude Code 的對照**（兩邊都玩過的人看這張表就懂）
 
@@ -24,7 +24,7 @@
 | 權限規則       | `.claude/settings.json` 的 allow/ask/deny | `approval_policy` + `sandbox_mode` + `.codex/rules/`（execpolicy） |
 | Hooks          | settings.json 的 `hooks`         | `.codex/config.toml` 或 `.codex/hooks.json` 的 `hooks` |
 | Subagents      | `.claude/agents/*.md`（Markdown） | `.codex/agents/*.toml`（TOML）        |
-| 斜線指令／流程 | `.claude/skills/*/SKILL.md`      | `.agents/skills/*/SKILL.md`（舊的 `~/.codex/prompts/` custom prompts 已被官方標為 deprecated） |
+| 斜線指令／流程 | `.claude/skills/*/SKILL.md`      | `.agents/skills/*/SKILL.md`（舊的 `~/.codex/prompts/` custom prompts 官方文件已不再收錄） |
 
 > **注意**：專案層的 `.codex/` 設定要在你**信任（trust）這個專案**之後才會載入——第一次在 repo 裡啟動 `codex` 時會問你是否信任此資料夾。
 
@@ -60,9 +60,9 @@ Claude Code 用一份 allow/ask/deny 清單管權限；Codex 拆成**三層**，
 2. **`approval_policy`**：管「什麼時候要問你」
 3. **execpolicy rules**：對**個別指令**做細部規則——危險的直接擋掉（forbidden）、日常的直接放行（allow）、重大的強制詢問（prompt）
 
-### 2a. 基本設定（`.codex/config.toml`）
+### 2a. 基本設定（`~/.codex/config.toml`）
 
-在 `training-repo/.codex/config.toml` 建立：
+在**使用者層** `~/.codex/config.toml` 設定（就是家目錄那份，不是專案層）：
 
 ```toml
 # 沙盒：只能寫 workspace 內的檔案，預設不能連網
@@ -72,11 +72,13 @@ sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 ```
 
+> **為什麼不是放專案層？** `sandbox_mode` 和 `approval_policy` 屬於安全設定，**寫在專案層 `training-repo/.codex/config.toml` 會被 Codex 忽略**（官方 config reference 明列專案層不允許覆寫這些 key）。專案層 config 適合放 hooks 這類可以進 git 共用的設定。
+
 - `sandbox_mode` 可選 `read-only`（只能讀）、`workspace-write`（預設，可寫工作區）、`danger-full-access`（拆掉沙盒，**不要用**）
 - `approval_policy` 可選 `untrusted`（除了安全的讀取操作外都問）、`on-request`（要升權時問）、`never`（都不問，**練習中不要用**）
 - 沙盒內預設**擋網路**；真的需要時才在 `[sandbox_workspace_write]` 加 `network_access = true`
 
-> **Windows 注意**：Codex 的沙盒在 macOS/Linux 是核心層機制（Seatbelt / Landlock），原生 Windows 的沙盒支援較新、模式不同（unelevated / elevated），官方另推薦 WSL2。本練習在 Windows 上請以 `approval_policy` + rules 為主要防線，並實際驗證沙盒行為。
+> **Windows 注意**：Codex 的沙盒在 macOS 是 Seatbelt、Linux 是 `bwrap` + `seccomp`（0.115 起，WSL1 已不支援），原生 Windows 的沙盒支援較新、模式不同（unelevated / elevated），官方另推薦 WSL2。本練習在 Windows 上請以 `approval_policy` + rules 為主要防線，並實際驗證沙盒行為。
 
 ### 2b. 指令規則（`.codex/rules/orderhub.rules`）
 
@@ -233,7 +235,7 @@ developer_instructions = """
 """
 ```
 
-**欄位重點**：`name`、`description`、`developer_instructions` 必填（description 決定 agent 何時會主動委派給它）；`model`、`model_reasoning_effort`、`sandbox_mode` 選填，不填就繼承主 session——可用便宜模型跑機械性任務。並行數量由 `agents.max_threads` 控制（預設 6）。
+**欄位重點**：`name`、`description`、`developer_instructions` 必填（description 決定 agent 何時會主動委派給它）；`model_reasoning_effort`、`sandbox_mode` 選填，不填就繼承主 session。並行數量由 `agents.max_threads` 控制（預設 6）。
 
 **驗證方式**：修完一個 bug 後說「用 code-reviewer 審查我的變更」，或直接觀察 agent 會不會在適當時機自己委派。
 
@@ -243,7 +245,7 @@ developer_instructions = """
 
 練習 2 每個 bug 都要走同一套流程，第二次開始你就會想把它做成指令。Codex 的 skill 是「一個資料夾 + `SKILL.md`」，專案層放在 **`.agents/skills/`**（注意：是 `.agents/`，不是 `.codex/`；個人全域的放 `~/.agents/skills/`）。
 
-> 你可能在網路教學看到 `~/.codex/prompts/*.md` 的 custom prompts 寫法——官方已標為 **deprecated**，新流程請一律用 skills。
+> 你可能在網路教學看到 `~/.codex/prompts/*.md` 的 custom prompts 寫法——官方文件已**不再收錄**這種做法，新流程請一律用 skills。
 
 在 `training-repo/.agents/skills/fix-bug/SKILL.md` 建立：
 
@@ -284,7 +286,7 @@ description: 檢查練習交付物是否齊備：測試全綠、commit 紀律、
 
 **格式重點**
 
-- frontmatter 的 `name`、`description` 必填，且 `name` 必須與資料夾名稱一致（kebab-case：全小寫、連字號）
+- frontmatter 的 `name`、`description` 必填；`name` 建議用 kebab-case（全小寫、連字號）並與資料夾名稱保持一致
 - Codex 也會**自動觸發** skill：任務內容符合 `description` 描述時它會自己選用——所以 description 要寫清楚「什麼時候該用、什麼時候不該用」，不想被自動觸發就在 description 明說「使用者明確要求時才使用」
 - Skill 採「漸進載入」：平常只載入 name + description，被選用時才讀完整內容——所以主要說明寫在內文，不要塞在 description
 - 資料夾裡可以放輔助腳本或參考文件，SKILL.md 內文用相對路徑引用
@@ -293,9 +295,9 @@ description: 檢查練習交付物是否齊備：測試全綠、commit 紀律、
 
 ## 附：官方文件
 
-- 設定總覽與 `config.toml` 參考：https://developers.openai.com/codex/config-reference
-- Approvals 與沙盒：https://developers.openai.com/codex/agent-approvals-security
-- Rules（execpolicy）：https://developers.openai.com/codex/exec-policy
-- Hooks：https://developers.openai.com/codex/hooks
-- Subagents：https://developers.openai.com/codex/subagents
-- Skills：https://developers.openai.com/codex/skills
+- 設定總覽與 `config.toml` 參考：https://learn.chatgpt.com/docs/config-file/config-reference
+- Approvals 與沙盒：https://learn.chatgpt.com/docs/agent-approvals-security
+- Rules（execpolicy）：https://learn.chatgpt.com/docs/agent-configuration/rules
+- Hooks：https://learn.chatgpt.com/docs/hooks
+- Subagents：https://learn.chatgpt.com/docs/agent-configuration/subagents
+- Skills：https://learn.chatgpt.com/docs/build-skills

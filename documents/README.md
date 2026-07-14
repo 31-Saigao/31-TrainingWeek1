@@ -20,8 +20,8 @@
 ## 啟動步驟
 
 ```powershell
-git clone <repo-url>
-cd OrderHub/training-repo
+git clone https://github.com/sox6769/traning.git
+cd traning/training-repo
 dotnet run --project src/OrderHub.Web
 ```
 
