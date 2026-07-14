@@ -87,6 +87,11 @@ Rules 用 Starlark 語法（長得像 Python）寫**前綴比對**規則。在 `
 ```python
 # ---- 危險操作：直接擋掉 ----
 prefix_rule(
+    pattern = ["rm", "-rf"],
+    decision = "forbidden",
+    justification = "禁止遞迴強制刪除",
+)
+prefix_rule(
     pattern = ["git", "push", "--force"],
     decision = "forbidden",
     justification = "禁止強推，需要時請人工操作",
@@ -125,6 +130,7 @@ prefix_rule(pattern = ["git", "commit"],   decision = "allow", justification = "
 - `pattern` 是**前綴比對**：`["dotnet", "build"]` 匹配所有以 `dotnet build` 開頭的指令
 - 多條規則同時命中時，取**最嚴格**的決定：`forbidden` > `prompt` > `allow`——所以 `git push --force` 被 forbidden 擋下，一般 `git push` 走 prompt
 - 注意：前綴比對不是完整沙盒，串接指令（如 `;`、`&&`）可能繞過，不應視為絕對安全防線——這也是為什麼還需要 sandbox 和 hooks
+- Rules 只管**指令**；Claude Code 版裡的檔案層保護（禁止讀 `appsettings.Production.json`、`*.pfx`，禁止改 Migrations）在 Codex 要靠 sandbox（限制可寫範圍）與 hooks（見下一節）處理
 - 寫完可以**離線測試**規則檔（不用真的啟動 agent）：
 
 ```powershell
@@ -151,9 +157,11 @@ AGENTS.md 裡的規則 agent「通常」會遵守；hooks 則是**由 Codex 本�
 
 **常用事件**：`PreToolUse`（工具執行前，可攔截）、`PostToolUse`（工具執行後）、`UserPromptSubmit`（你送出訊息時）、`SessionStart`、`Stop`（agent 結束回合時）。
 
+rules 擋的是「指令長相」，hook 可以檢查**內容**。
+
 ### PreToolUse & PostToolUse 範例
 
-rules 擋的是「指令長相」，hook 可以檢查**內容**。在 `training-repo/.codex/hooks.json` 建立：
+在 `training-repo/.codex/hooks.json` 建立：
 
 ```json
 {
@@ -164,8 +172,7 @@ rules 擋的是「指令長相」，hook 可以檢查**內容**。在 `training-
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -Command \"$in = [Console]::In.ReadToEnd(); if ($in -match 'DROP TABLE|TRUNCATE') { [Console]::Error.WriteLine('禁止破壞性 SQL，請改用 EF migration 或重置腳本'); exit 2 } exit 0\"",
-            "statusMessage": "檢查 SQL 指令"
+            "command": "powershell -NoProfile -File .codex/hooks/block-destructive-sql.ps1"
           }
         ]
       }
@@ -176,7 +183,8 @@ rules 擋的是「指令長相」，hook 可以檢查**內容**。在 `training-
         "hooks": [
           {
             "type": "command",
-            "command": "dotnet build --nologo -v q"
+            "command": "powershell -NoProfile -File .codex/hooks/log-edits.ps1",
+            "statusMessage": "Logging file edit..."
           }
         ]
       }
@@ -185,15 +193,22 @@ rules 擋的是「指令長相」，hook 可以檢查**內容**。在 `training-
 }
 ```
 
-- `PreToolUse` 攔截任何含 `DROP TABLE` / `TRUNCATE` 的指令（**exit code 2 = 擋下這次工具呼叫**，stderr 訊息會回饋給 agent；也可以輸出 JSON 回傳 `permissionDecision: "deny"`）
-- `PostToolUse` 每次 agent 用 `apply_patch` 改完檔案就自動 build，錯誤立即回饋給 agent（它會自己修）。注意 Codex 的檔案編輯工具叫 `apply_patch`（不是 Claude 的 Edit/Write）
-- 其他非 0、非 2 的 exit code 視為 hook 本身故障，Codex 會照常繼續，不會擋下操作
+- `PreToolUse` 攔截任何含 `DROP TABLE` / `TRUNCATE` 的指令（**exit code 2 = 擋下這次工具呼叫**，stderr 訊息會回饋給 agent；其他非 0、非 2 的 exit code 視為 hook 本身故障，Codex 會照常繼續）
+- `PostToolUse` 每次 agent 用 `apply_patch` 改完檔案，就把「時間、工具、檔案路徑」記錄到 `.codex/hooks/edit-log.txt`，並用 stdout JSON 的 `systemMessage` 在 UI 顯示一行提示——留下 agent 動過哪些檔案的稽核軌跡。注意 Codex 的檔案編輯工具叫 `apply_patch`（不是 Claude 的 Edit/Write）
 
+> 兩個範例可以合併在同一個 hooks.json 裡（`PreToolUse` 和 `PostToolUse` 並列）。
 > 複雜邏輯建議寫成獨立腳本放 `.codex/hooks/`，hook 的 `command` 再去呼叫它。
 
-**驗證方式**：
+把以下powershell 文件拷貝到 `training-repo/.codex/hooks/`
 
-- [ ] 設定好後，故意請 agent「執行 sqlcmd 把 Orders 資料表 TRUNCATE 掉」——它應該被 hook 擋下，並回報被擋的原因。
+- [block-destructive-sql.ps1](block-destructive-sql.ps1)
+- [log-edits.ps1](log-edits.ps1)
+
+**驗證方式**：
+打開新session
+
+- [ ] 設定好後，故意請 agent「執行 sqlcmd 把 OrderItems 資料表 TRUNCATE 掉」——它應該被 hook 擋下，並回報被擋的原因。
+- [ ] 請agent 創建一份 sample.txt, 查看 `.codex/hooks/` 資料夾裡面出現一個 `edit-log.txt` 文件
 
 ---
 
@@ -237,7 +252,10 @@ developer_instructions = """
 
 **欄位重點**：`name`、`description`、`developer_instructions` 必填（description 決定 agent 何時會主動委派給它）；`model_reasoning_effort`、`sandbox_mode` 選填，不填就繼承主 session。並行數量由 `agents.max_threads` 控制（預設 6）。
 
-**驗證方式**：修完一個 bug 後說「用 code-reviewer 審查我的變更」，或直接觀察 agent 會不會在適當時機自己委派。
+**驗證方式**：
+
+- [ ] 修完一個 bug 後說「用 code-reviewer 審查我的變更」，或直接觀察 agent 會不會在適當時機自己委派。
+- [ ] 用 test-runner 跑測試
 
 ---
 
@@ -261,28 +279,12 @@ description: 依標準流程修復一個 bug：重現、定位、修復、回歸
 2. 從 Controller 往下追到 Service、Repository，定位根因；
    說明根因後**等使用者確認**再動手修
 3. 用最小變更修復，不要順手重構無關的程式碼
-4. 補一個回歸測試（先確認它在修復前會失敗的邏輯），跑 `dotnet test` 確認全綠
-5. 提示使用者回頁面實測，確認後以「症狀 → 根因 → 修法」格式撰寫 commit message 並 commit
+4. 使用code-reviewer來驗證改動
+5. 補一個回歸測試（先確認它在修復前會失敗的邏輯），使用test-runner跑 `dotnet test` 確認全綠
+6. 提示使用者回頁面實測，確認後以「症狀 → 根因 → 修法」格式撰寫 commit message 並 commit
 ```
 
 之後輸入 `$fix-bug 訂單列表第一頁看不到新訂單`（或透過 `/skills` 選單挑選）就會啟動整套流程。
-
-再做一個驗收用的 `verify-exercise`（`.agents/skills/verify-exercise/SKILL.md`）：
-
-```markdown
----
-name: verify-exercise
-description: 檢查練習交付物是否齊備：測試全綠、commit 紀律、PROCESS.md 有填。只在使用者明確要求驗收時使用。
----
-
-檢查目前 repo 是否符合活動驗收標準，逐項回報通過/未通過：
-
-1. `dotnet test` 全綠
-2. `git log --oneline` 中每個 bug 修復與新功能是否各自獨立 commit，
-   message 是否說明症狀與根因
-3. PROCESS.md 是否有實質內容（不是空範本）
-4. /Products/LowStock 相關程式是否遵循分層慣例
-```
 
 **格式重點**
 
