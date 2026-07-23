@@ -23,14 +23,16 @@
 **做法**
 
 1. 根據你使用的工具挑一份設定指南進行設定：
-   - Claude Code：[agent-configuration.md](agent-configuration.md)
-   - Codex CLI：[agent-configuration-codex.md](agent-configuration-codex.md)
+   - Claude Code：[agent-configuration.md](/references/agent-configuration.md)
+   - Codex CLI：[agent-configuration-codex.md](/references/agent-configuration-codex.md)
 2. 把設定檔案 `commit` 到 git
 3. `PROCESS.md` 自我驗證
 
 ---
 
 ## 練習 2 — 排查並修復 3 個 bug
+
+prompt 方式可參考：[prompting guide](/references/prompting-best-practice.md)
 
 系統上線後陸續接到三張客訴單。**只有症狀，沒有其他線索。**
 
@@ -78,6 +80,38 @@
   - `threshold <= 0` 時顯示表單驗證錯誤訊息（**不可以是 500 錯誤頁**）
 - **導覽列**加入「低庫存」連結
 - **測試**：至少 3 個 service 層單元測試（建議：門檻過濾與排序、排除停售商品、近 30 天銷量排除 Cancelled）
+
+### 建議做法：先讓 agent 出計畫，你確認後再動手
+
+這個功能橫跨 Controller / Service / Repository / ViewModel / View / 測試 六個地方，一次叫 agent 「幫我做低庫存頁」直接寫完，常常會偏離既有慣例、漏掉邊界，返工比重寫還累。用「**先計畫、再實作**」的方式：agent 先把「要動哪些檔、每層放什麼」講清楚，你對照規格與專案慣例確認後才放行——錯誤在還是文字的時候最好改。
+
+1. **切進計畫模式**
+   - Claude Code：按 `Shift+Tab` 循環切到 **Plan Mode**（狀態列出現 `plan mode on`）。此模式下 agent 只讀檔、規劃，**不會改任何檔案**，最後給你一份計畫等你核准。⚠️ 計畫還沒讀完不要急著按同意，這步的價值就在人工審查。
+   - Codex CLI：沒有專屬計畫模式，就在 prompt 明講「**先只給實作計畫，我確認前不要修改任何檔案**」，達到同樣效果。
+
+2. **把規格連同「沿用既有慣例」一起交給 agent，要它輸出計畫而不是程式碼**。可直接用這個 prompt：
+
+   ```
+   我要新增「低庫存警示頁面」，規格如下（貼上上面整段規格）。
+   先不要寫程式，請給我一份實作計畫，包含：
+   - 要新增/修改哪些檔案，逐一列出路徑，並說明每個檔案的職責
+   - 每層怎麼分工：Controller 只轉接、邏輯放 Core service、EF Core 查詢放 repository、View 綁 ViewModel、DataAnnotations 驗證
+   - 「近 30 天售出數量（排除 Cancelled）」打算在哪一層、用什麼查詢算，會不會有 N+1
+   - threshold 驗證（未帶預設 10、<=0 顯示表單錯誤而非 500）放哪一層、用什麼機制
+   - 打算補哪 3 個 service 單元測試，各驗證什麼
+   動手前先讀 ProductsController、ProductService/IProductService、Views/Products/Index.cshtml，沿用同一套慣例，不要自創寫法。
+   ```
+
+3. **逐條審計畫（重點，不可略過）**，對照確認：
+   - **分層有沒有跑掉**：邏輯是否真的落在 Core service，Controller 有沒有偷塞查詢或計算
+   - **有沒有沿用既有慣例**：命名、`ServiceResult`、DataAnnotations 驗證、ViewModel 綁定，而不是自成一套
+   - **邊界有沒有覆蓋**：`threshold <= 0`、剛好等於 threshold（是 `<` 不是 `<=`）、`IsActive` 過濾、庫存升冪排序方向、Cancelled 排除、近 30 天的日期邊界
+   - **測試計畫有沒有真的測到規格要求的三件事**
+     ⚠️ 計畫裡若冒出「順便改 xxx」「一起重構 yyy」這種超出規格的動作，請它拿掉——這個練習只做低庫存頁，重構留到練習 4。
+
+4. **核准後才放行實作**：Claude Code 在 Plan Mode 核准計畫即開始寫；Codex 回「照這個計畫做」。實作完照上面 **規格** 每一條逐項在頁面驗證，再跑測試。
+
+5. **一個獨立 commit**，message 寫清楚新增了什麼功能、補了哪些測試。
 
 ---
 

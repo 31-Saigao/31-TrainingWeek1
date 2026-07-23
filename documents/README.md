@@ -2,9 +2,16 @@
 
 公司內部訂單管理系統，做為初級 AI Agent 實作培訓的練習專案。
 
-練習詳細說明請看 **[activity-guideline.md](references/activity-guideline.md)**
-
 心得記錄範本在 **[PROCESS.md](PROCESS.md)**。
+
+## 培訓系列地圖
+
+| 活動 | 主題                                             | 指南                                                      |
+| ---- | ------------------------------------------------ | --------------------------------------------------------- |
+| 1    | Agentic Coding:用 agent 讀懂專案、修 bug、加功能 | [activity-guideline.md](activities/activity-guideline.md) |
+| 2    | 敬請期待                                         |                                                           |
+| 3    | 敬請期待                                         |                                                           |
+| 4    | 敬請期待                                         |                                                           |
 
 ## 技術棧
 
@@ -124,3 +131,10 @@ dotnet run --project src/OrderHub.Web   # 會重新 migrate + seed
 
 **HTTPS 憑證警告**
 第一次跑 .NET 網站可執行 `dotnet dev-certs https --trust` 信任開發憑證。
+
+---
+
+## 讀物
+
+- [如何減少token使用量](/references/reduce-token-usage.md)
+- [提示技巧最佳實踐](/references/prompting-best-practice.md)

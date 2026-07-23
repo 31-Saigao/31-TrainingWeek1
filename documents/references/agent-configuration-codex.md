@@ -32,23 +32,103 @@
 
 ## 1. `AGENTS.md` — 讓 agent 不用每次重新認識專案
 
-Codex 的專案記憶檔叫 **`AGENTS.md`**（這是跨工具的開放格式，Codex 原生支援）。放在**專案根目錄**，agent 每個 session 開始時自動載入。把「每次都要重講一遍」的東西寫進來：架構慣例、常用指令、地雷區。
+Codex 的專案記憶檔叫 **`AGENTS.md`**（跨工具的開放格式，Codex 原生支援）。放在**專案根目錄**（和 `.sln`、`.csproj` 同層），agent 每個 session 開始時自動載入。把它想成「**AI 隊友的 onboarding 文件**」：一份會進版控、全隊共用、隨程式碼一起演進的常駐指示。把「每次都要重講一遍」的東西寫進來，agent 就不必每次重新摸索專案。
 
-在 `training-repo` 建立 `AGENTS.md`：
+### 先用 `/init` 產一份草稿
 
 ```
 codex       # 啟動（首次會要求登入，並詢問是否信任此專案）
-/init       # 在對話框輸入，自動產生 AGENTS.md
+/init       # 在對話框輸入，agent 會掃描專案自動產生 AGENTS.md
 ```
 
-**進階技巧**
+⚠️ `/init` 產出的是**起點不是終點**——它只是把它掃到的東西整理成文，你要手動精修：補上它猜不到的慣例、刪掉冗詞。
 
-- 使用者層級的個人偏好放 `~/.codex/AGENTS.md`，對你所有專案生效（例如「我的 SQL Server 是具名實例 .\SQLEXPRESS」這種個人環境差異）
-- 子目錄也可以放自己的 `AGENTS.md`，處理該目錄時會一併載入——大型 repo 可用來寫各模組的局部慣例
+### AGENTS.md 該寫什麼（六個區塊）
+
+不用面面俱到，但這六塊涵蓋最常「重講一遍」的內容：
+
+1. **專案簡介**（2–3 句）：這是什麼系統、給誰用、大概規模——讓 agent 不會用錯複雜度（小內部系統不需要它套微服務那套）
+2. **技術棧與關鍵版本**：框架、資料庫、測試框架的**確切版本**——版本會直接改變寫法（例如 .NET 8 和 .NET 10 的 API 不一樣）
+3. **分層與慣例**：命名、資料夾結構、每層職責、驗證與金額處理方式
+4. **常用指令**：build / test / run 怎麼下
+5. **重要 / 危險檔案**：碰到要特別小心的檔（migration、設定檔）——避免它「清理 API 路由」時順手改壞你的 webhook
+6. **不要做的事（Don'ts）**：明確的護欄，例如「不要未經同意就裝新套件」
+
+`training-repo/AGENTS.md` 的範例：
+
+```markdown
+# OrderHub — 專案記憶
+
+## 專案簡介
+
+公司內部訂單管理系統：業務可建立/查詢訂單、管理商品與客戶。
+內部使用、單一 SQL Server 資料庫，不需要考慮多租戶或高併發架構。
+
+## 技術棧
+
+- .NET 8 / ASP.NET Core MVC（Razor Views）
+- EF Core 8 + SQL Server
+- 測試：xUnit
+
+## 分層與慣例
+
+- 三層：`OrderHub.Web`（Controller/View/ViewModel）→ `OrderHub.Core`
+  （Domain/Services/Interfaces）→ `OrderHub.Infrastructure`（Repositories/Migrations）
+- Controller 保持薄，只轉接 service 結果；商業邏輯一律放 Core 的 service
+- 只有 repository 碰 `DbContext`；Controller / Service 不可直接用 EF Core
+- Service 回傳 `ServiceResult<T>`，用它表達預期內的失敗，不要丟例外
+- View 綁 ViewModel，不要把 domain model 直接丟給 View
+- 使用者輸入用 DataAnnotations + ModelState 驗證；輸入錯誤絕不能變成 500
+- 金額一律用 `decimal`；折扣集中在 `OrderService.CalculateTotal`，不要在別處重算
+- 參考檔：Controller 照 `ProductsController.cs`、Service 照 `ProductService.cs` 的寫法
+
+## 常用指令
+
+- `dotnet build`：建置
+- `dotnet test`：跑全部測試
+- `dotnet run --project src/OrderHub.Web`：啟動網站（http://localhost:5150）
+
+## 重要 / 危險檔案
+
+- `src/OrderHub.Infrastructure/Migrations/**`：EF migration 是歷史紀錄，不要手改
+- `src/OrderHub.Web/appsettings.json`：連線字串等設定，改動前先問
+
+## 不要做的事
+
+- 不要未經同意就加新的 NuGet 套件
+- 不要在 Controller / Service 直接使用 DbContext
+- 不要為了「順手」重構與當前任務無關的程式碼
+- 不要讀取或寫入任何機密檔（*.pfx、appsettings.Production.json、user-secrets）
+```
+
+### 保持精簡（很重要）
+
+AGENTS.md 每個 session 都會被讀進 context、佔 token，**寫越長、每次對話越貴，重點也越容易被稀釋**。
+
+- **長度**：多數專案 50–100 行剛好，上限抓 200–400 行；再長就該拆檔（見下）
+- **不要寫**：通用的程式建議（「要寫乾淨的程式」）、專案沿革、每週都在變的細節
+- **具體 > 抽象**：與其「遵循乾淨架構」，不如寫「商業邏輯放 Core service、Controller 只轉接」並指一個範例檔——agent 照著抄比照著猜準得多
+
+### 讓它持續進化
+
+- **從失敗回補**：每次 agent 做錯或跑偏，問自己「**哪一句 context 能避免這次**」，把那句補進 AGENTS.md——這是它變強最快的方式
+- **直接編輯就好**：Codex 沒有行內的「一鍵記憶」捷徑，AGENTS.md 就是一份純文字檔，養成隨手補一行的習慣即可；重跑 `/init` 會整份重掃、蓋掉你的手改，慎用
+- **用巢狀 AGENTS.md 拆檔**：內容太長時，把局部慣例移到子目錄自己的 `AGENTS.md`，根目錄那份只留全域慣例——Codex 會依「專案根 → 目前工作目錄」沿路把每一層的 AGENTS.md 串接載入
+
+### 檔案階層（誰蓋過誰）
+
+Codex 載入順序是**先全域、後專案，越深越優先**：
+
+- **全域個人偏好**放 `~/.codex/AGENTS.md`，對你所有專案生效（例如「我的 SQL Server 是具名實例 .\SQLEXPRESS」這種個人環境差異）；它會排在專案檔之前載入
+- **專案根目錄**一份（以 `.git` 為界）；Codex 從專案根往下、把沿路每一層的 AGENTS.md 串接進來，**不會越過專案根往上找**
+- **子目錄**可各放一份寫該模組的局部慣例；和上層衝突時**越深的越優先**
+- ⚠️ 你在 prompt 裡直接下的指示，永遠**蓋過** AGENTS.md 的內容
 
 **驗證方式**：
 
-- [ ] 建好後開新 session，直接問 agent「這個專案的分層慣例是什麼？」——它應該不用讀任何檔案就答得出來。
+- [ ] 建好後開新 session，問 agent「這個專案的分層慣例是什麼？」——它應該不用讀任何檔案就答得出來
+- [ ] 問「金額要用什麼型別？折扣在哪裡算？」——答案應該和 AGENTS.md 一致
+- [ ] 故意請它「裝一個新 NuGet 套件」——它應該先問你，而不是逕自安裝
 
 ---
 
@@ -201,8 +281,8 @@ rules 擋的是「指令長相」，hook 可以檢查**內容**。
 
 把以下powershell 文件拷貝到 `training-repo/.codex/hooks/`
 
-- [block-destructive-sql.ps1](block-destructive-sql.ps1)
-- [log-edits.ps1](log-edits.ps1)
+- [block-destructive-sql.ps1](../activities/scripts/block-destructive-sql.ps1)
+- [log-edits.ps1](../activities/scripts/log-edits.ps1)
 
 **驗證方式**：
 打開新session
