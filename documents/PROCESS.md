@@ -15,7 +15,7 @@ Claude Code，模型 Claude Sonnet 5（`claude-sonnet-5`）
 
 （開工前你把任務拆成哪幾步？實際做的時候順序有變嗎？為什麼變？）
 
-- 我一開始只丟了一句很模糊的話：「這是 homework，需要修的東西都寫在 documents/README.md，照著 README.md 幫我修一下我的專案」。agent 沒有直接照 README.md 表面內容動手，而是先發現 README.md 只是索引，真正的任務清單在 `documents/activities/activity-guideline.md`（練習 1～4：讀懂專案/設定、修 3 個 bug、加低庫存頁、小重構）。
+- 我一開始給的指令很模糊，只指向 `documents/README.md` 作為修復依據的來源，沒有描述具體症狀或範圍。agent 沒有直接照 README.md 表面內容動手，而是先發現 README.md 只是索引，真正的任務清單在 `documents/activities/activity-guideline.md`（練習 1～4：讀懂專案/設定、修 3 個 bug、加低庫存頁、小重構）。
 - 因為我一句話涵蓋了整份指南，agent 先用選擇題問我「只修 3 個 bug／bug+新功能／全部（bug+功能+重構）」，我選「全部」之後，它才建立 5 個追蹤任務：bug1 分頁、bug2 折扣、bug3 庫存、練習3 低庫存頁、練習4 重構。
 - 實際執行順序跟指南建議的完全一致（先 3 個獨立 bug 各自 commit，再做新功能，最後做重構），沒有變動；唯一的差異是每個 bug 修完都立刻 `dotnet test` 全綠才 commit，而不是全部改完再一次驗證，這樣萬一某個修法有副作用可以馬上抓到是哪一個 commit 出的問題。
 
@@ -23,8 +23,7 @@ Claude Code，模型 Claude Sonnet 5（`claude-sonnet-5`）
 
 （哪件事 agent 做得又快又好？**貼上當時的提問原文**，說明為什麼這樣問有效。）
 
-- 提問原文：「this is a homework exercise, everything needed to fix is written in documents\README.md and you refer to the README.md and fix my projects ?」
-  這句話其實資訊很少（沒講具體症狀、沒講要修哪裡），但有效的地方在於**指出了「答案在哪份文件裡」**，agent 靠這個線索自己往下追（README → activity-guideline.md → 具體 3 張客訴單描述），省了我自己去翻文件、猜任務範圍的時間。
+- 開場那句指令其實資訊很少（沒講具體症狀、沒講要修哪裡），但有效的地方在於**指出了「答案在哪份文件裡」**，agent 靠這個線索自己往下追（README → activity-guideline.md → 具體 3 張客訴單描述），省了我自己去翻文件、猜任務範圍的時間。
 - 最省時間的一次是 bug 3（庫存不回補）：agent 只靠讀 `OrderService.CancelOrderAsync` 的程式碼，就指出「`order.Status = OrderStatus.Cancelled;` 這行寫在判斷『是否為 Pending/Confirmed 才回補庫存』的 if 之前，導致判斷式恆為 false，回補區塊永遠不會執行」——這是一種肉眼很容易漏掉的死代碼（dead code），agent 一次掃過去就抓到，比我自己逐行 trace 快很多。
 - 修完 bug 2（Gold 會員折扣）之後，agent 直接指出**既有測試** `OrderServicePricingTests.CalculateTotal_AppliesTierDiscountOnSubtotal` 早就寫死「Gold 折扣只在 CalculateTotal 套用一次」的期望值，證明正確答案應該是「拿掉 CreateOrderAsync 裡的預先打折」而不是「拿掉 CalculateTotal 的打折」——用既有測試反推正確修法，而不是憑感覺選一個方向改。
 
@@ -87,17 +86,3 @@ Claude Code，模型 Claude Sonnet 5（`claude-sonnet-5`）
 3. 我有在 code review 的角度看過 diff（不是 agent 說好就好）—— 看過 diff 後特別確認：(a) 兩個新方法搬出去的程式碼跟原本逐行一致，沒有夾帶額外邏輯；(b) `ValidateLines` 沒有不小心把三個獨立 `if` 改成累積驗證（這樣會讓使用者一次看到多個錯誤訊息，是行為改變）；(c) 重構本身沒有動到練習 2、3 的修復或新增的程式碼與測試。
 
 ---
-
-## 附錄：值得留下的對話片段
-
-（貼 1–2 段最有代表性的 prompt 與回應**摘要**——不用貼全文，重點是「我怎麼問」和「它怎麼答」。）
-
-**片段 1**
-我問：「this is a homework exercise, everything needed to fix is written in documents\README.md and you refer to the README.md and fix my projects ?」
-它答（摘要）：先讀 `documents/README.md`，發現裡面只是連結索引，真正任務在 `documents/activities/activity-guideline.md`；讀完指南後沒有直接開始改程式，而是先用選擇題問我「只修 3 個 bug／bug+新功能／全部」，等我選定範圍才建立 5 個子任務開始動手。
-→ 有效的地方：模糊指令下，agent 沒有自己瞎猜範圍，而是先把「文件裡藏著的任務範圍」攤開讓我選，避免做過頭或做不夠。
-
-**片段 2**
-我問（第二輪）：「and also write a work thought into the PRCOESS.md as well」
-它答（摘要）：先讀現有 `PROCESS.md` 模板結構（通用四問＋自我驗證清單＋附錄），沒有整篇重寫，而是照模板原本的段落逐一填入這次工作實際發生的具體事實（真實 commit hash、真實測試數字變化 29→30→32→35、真實檔案路徑踩坑經驗），並在自我驗證清單裡誠實標記「沒做到」的項目（例如沒有先在瀏覽器手動重現三個 bug），而不是全部打勾美化。
-→ 有效的地方：照著既有模板的段落逐條填空，而不是丟掉模板重寫一份新的，保留了團隊統一格式；誠實記錄沒做到的部分，比全部寫成「都做到了」更符合這份文件「不寫感想文、寫具體發生的事」的宗旨。
