@@ -136,5 +136,5 @@ dotnet run --project src/OrderHub.Web   # 會重新 migrate + seed
 
 ## 讀物
 
-- [如何減少token使用量](/references/reduce-token-usage.md)
-- [提示技巧最佳實踐](/references/prompting-best-practice.md)
+- [如何減少token使用量](references/reduce-token-usage.md)
+- [提示技巧最佳實踐](references/prompting-best-practice.md)

@@ -23,8 +23,8 @@
 **做法**
 
 1. 根據你使用的工具挑一份設定指南進行設定：
-   - Claude Code：[agent-configuration.md](/references/agent-configuration.md)
-   - Codex CLI：[agent-configuration-codex.md](/references/agent-configuration-codex.md)
+   - Claude Code：[agent-configuration.md](../references/agent-configuration.md)
+   - Codex CLI：[agent-configuration-codex.md](../references/agent-configuration-codex.md)
 2. 把設定檔案 `commit` 到 git
 3. `PROCESS.md` 自我驗證
 
@@ -32,7 +32,7 @@
 
 ## 練習 2 — 排查並修復 3 個 bug
 
-prompt 方式可參考：[prompting guide](/references/prompting-best-practice.md)
+prompt 方式可參考：[prompting guide](../references/prompting-best-practice.md)
 
 系統上線後陸續接到三張客訴單。**只有症狀，沒有其他線索。**
 
