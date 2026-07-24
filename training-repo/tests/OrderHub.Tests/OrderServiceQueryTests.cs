@@ -41,6 +41,26 @@ public class OrderServiceQueryTests
     }
 
     [Fact]
+    public async Task GetOrders_FirstPage_ReturnsNewestOrdersNotSecondPage()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db);
+
+        // 45 筆訂單，CreatedAt 遞減（i=0 最新）；第一頁應含最新的訂單（i=0），不應該被跳過。
+        for (var i = 0; i < 45; i++)
+            db.Orders.Add(new Order { CustomerId = customer.Id, Status = OrderStatus.Confirmed, CreatedAt = DateTime.UtcNow.AddMinutes(-i) });
+        db.SaveChanges();
+
+        var page1 = await service.GetOrdersAsync(1, 20, null);
+        var page3 = await service.GetOrdersAsync(3, 20, null);
+
+        Assert.Equal(20, page1.Items.Count);
+        Assert.Contains(page1.Items, o => o.CreatedAt == db.Orders.Max(x => x.CreatedAt));
+        Assert.Equal(5, page3.Items.Count);
+    }
+
+    [Fact]
     public async Task GetCustomerOrders_ReturnsOnlyThatCustomersOrders()
     {
         using var db = TestSetup.CreateContext();
