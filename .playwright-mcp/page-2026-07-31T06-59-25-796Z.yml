@@ -1,0 +1,73 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - link "OrderHub" [ref=e5] [cursor=pointer]:
+          - /url: /Orders
+        - list [ref=e7]:
+          - listitem [ref=e8]:
+            - link "訂單" [ref=e9] [cursor=pointer]:
+              - /url: /Orders
+          - listitem [ref=e10]:
+            - link "商品" [ref=e11] [cursor=pointer]:
+              - /url: /Products
+          - listitem [ref=e12]:
+            - link "低庫存" [ref=e13] [cursor=pointer]:
+              - /url: /Products/LowStock
+          - listitem [ref=e14]:
+            - link "客戶" [ref=e15] [cursor=pointer]:
+              - /url: /Customers
+  - generic [ref=e16]:
+    - alert [ref=e17]:
+      - text: "訂單 #204 建立成功"
+      - button "關閉" [ref=e18] [cursor=pointer]
+    - main [ref=e19]:
+      - generic [ref=e20]:
+        - 'heading "訂單 #204 待處理" [level=1] [ref=e21]':
+          - text: "訂單 #204"
+          - generic [ref=e22]: 待處理
+        - link "回訂單列表" [ref=e23] [cursor=pointer]:
+          - /url: /Orders
+      - generic [ref=e24]:
+        - generic [ref=e25]: 客戶資訊
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - strong [ref=e29]: 陳志明
+              - generic [ref=e30]: 金卡會員
+            - generic [ref=e31]: chen.zhiming@example.com.tw
+            - generic [ref=e32]: 建立時間：2026-07-31 14:59
+          - link "查看此客戶的所有訂單" [ref=e34] [cursor=pointer]:
+            - /url: /Customers/1/Orders
+      - generic [ref=e35]:
+        - generic [ref=e36]: 訂單明細
+        - table [ref=e37]:
+          - rowgroup [ref=e38]:
+            - row "SKU 商品 數量 單價（快照） 小計" [ref=e39]:
+              - columnheader "SKU" [ref=e40]
+              - columnheader "商品" [ref=e41]
+              - columnheader "數量" [ref=e42]
+              - columnheader "單價（快照）" [ref=e43]
+              - columnheader "小計" [ref=e44]
+          - rowgroup [ref=e45]:
+            - row "SKU-1002 極光 機械鍵盤 2 NT$ 2,320.00 NT$ 4,640.00" [ref=e46]:
+              - cell "SKU-1002" [ref=e47]
+              - cell "極光 機械鍵盤" [ref=e48]
+              - cell "2" [ref=e49]
+              - cell "NT$ 2,320.00" [ref=e50]
+              - cell "NT$ 4,640.00" [ref=e51]
+          - rowgroup [ref=e52]:
+            - row "小計 NT$ 4,640.00" [ref=e53]:
+              - cell "小計" [ref=e54]
+              - cell "NT$ 4,640.00" [ref=e55]
+            - row "會員折扣（10%） -NT$ 464.00" [ref=e56]:
+              - cell "會員折扣（10%）" [ref=e57]
+              - cell "-NT$ 464.00" [ref=e58]
+            - row "應付總額 NT$ 4,176.00" [ref=e59]:
+              - cell "應付總額" [ref=e60]:
+                - strong [ref=e61]: 應付總額
+              - cell "NT$ 4,176.00" [ref=e62]:
+                - strong [ref=e63]: NT$ 4,176.00
+      - button "取消訂單" [ref=e65] [cursor=pointer]
+  - contentinfo [ref=e66]:
+    - generic [ref=e67]: © 2026 - OrderHub 訂單管理系統（內部訓練用）
