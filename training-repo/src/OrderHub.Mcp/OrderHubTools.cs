@@ -6,6 +6,10 @@ using System.ComponentModel;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
+public record OrderLineInput(
+    [property: Description("商品 Id")] int ProductId,
+    [property: Description("數量")] int Quantity);
+
 [McpServerToolType]
 public class OrderHubTools(IOrderService orderService, IProductRepository productRepository)
 {
@@ -16,7 +20,7 @@ public class OrderHubTools(IOrderService orderService, IProductRepository produc
         WriteIndented = true
     };
 
-    [McpServerTool, Description("依訂單編號查詢訂單，含客戶、品項、單價快照、會員折扣與應付總額")]
+    [McpServerTool(ReadOnly = true), Description("依訂單編號查詢訂單，含客戶、品項、單價快照、會員折扣與應付總額")]
     public async Task<string> GetOrder([Description("訂單 Id")] int id)
     {
         var order = await orderService.GetOrderAsync(id);
@@ -50,7 +54,7 @@ public class OrderHubTools(IOrderService orderService, IProductRepository produc
         return JsonSerializer.Serialize(result, Json);
     }
 
-    [McpServerTool, Description("列出庫存低於門檻且仍在販售的商品，依庫存量升冪排序")]
+    [McpServerTool(ReadOnly = true), Description("列出庫存低於門檻且仍在販售的商品，依庫存量升冪排序")]
     public async Task<string> LowStock([Description("庫存門檻，預設 10")] int threshold = 10)
     {
         var products = await productRepository.GetActiveAsync();
@@ -62,7 +66,7 @@ public class OrderHubTools(IOrderService orderService, IProductRepository produc
         return JsonSerializer.Serialize(items, Json);
     }
 
-    [McpServerTool, Description("查詢某位客戶的全部訂單摘要（編號、日期、狀態、應付總額）")]
+    [McpServerTool(ReadOnly = true), Description("查詢某位客戶的全部訂單摘要（編號、日期、狀態、應付總額）")]
     public async Task<string> CustomerOrders([Description("客戶 Id")] int customerId)
     {
         var orders = await orderService.GetCustomerOrdersAsync(customerId);
@@ -74,5 +78,36 @@ public class OrderHubTools(IOrderService orderService, IProductRepository produc
             Total = orderService.CalculateTotal(o)
         });
         return JsonSerializer.Serialize(result, Json);
+    }
+
+    [McpServerTool(Destructive = false, Idempotent = false),
+     Description("建立新訂單：指定客戶 Id 與品項清單（商品 Id + 數量），庫存足夠且商品有效才會成立。回傳新訂單編號、狀態與應付總額")]
+    public async Task<string> CreateOrder(
+        [Description("客戶 Id")] int customerId,
+        [Description("訂單品項清單，至少一項，每項含商品 Id 與數量")] List<OrderLineInput> lines)
+    {
+        var newLines = lines.Select(l => new NewOrderLine(l.ProductId, l.Quantity)).ToList();
+        var result = await orderService.CreateOrderAsync(customerId, newLines);
+        if (!result.Success)
+            return $"建立失敗：{result.ErrorMessage}";
+
+        var order = result.Value!;
+        return JsonSerializer.Serialize(new
+        {
+            order.Id,
+            order.CreatedAt,
+            Status = order.Status.ToString(),
+            Total = orderService.CalculateTotal(order)
+        }, Json);
+    }
+
+    [McpServerTool(Destructive = true, Idempotent = false),
+     Description("取消一筆訂單（僅限待處理/已確認狀態），品項庫存會自動回補。此操作會修改資料，無法還原")]
+    public async Task<string> CancelOrder([Description("要取消的訂單 Id")] int id)
+    {
+        var result = await orderService.CancelOrderAsync(id);
+        return result.Success
+            ? $"訂單 {id} 已取消，庫存已回補"
+            : $"取消失敗：{result.ErrorMessage}";
     }
 }
