@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "orderhub": {
+      "command": "dotnet",
+      "args": ["run", "--project", "src/OrderHub.Mcp"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.70"]
+    }
+  }
+}
