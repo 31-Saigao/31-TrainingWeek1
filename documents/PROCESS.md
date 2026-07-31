@@ -89,4 +89,13 @@ Claude Code，模型 Claude Sonnet 5（`claude-sonnet-5`）
 練習 3
 1. 關閉后使用agent 會詢問我的意向跑了一段語法獲取相關資料，但是在開啓/MCP后會自動使用 MCP 的 low_stock功能，速度會快很多，展示出來的也易懂。
 
+練習 5
+
+- 新增了 `OrderHubResources.cs`（`orderhub://discount-rules`，回傳一段 Markdown）和 `OrderHubPrompts.cs`（`low_stock_report` prompt，帶 `threshold` 參數），`Program.cs` 補上 `.WithResources<OrderHubResources>()` / `.WithPrompts<OrderHubPrompts>()`。因為原本 `.csproj` 只顯式裝了 `ModelContextProtocol`，`OrderHubPrompts.cs` 用到的 `Microsoft.Extensions.AI.ChatMessage` 沒裝套件也直接 build 過（是 `ModelContextProtocol` 的相依套件帶進來的），一開始以為要另外 `dotnet add package` 才能過。
+- 沒有走瀏覽器版 Inspector，改用 `npx @modelcontextprotocol/inspector --cli <編譯好的 exe> --method <method>` 的無頭模式驗證，逐一打了 `resources/list`（讀到 `orderhub://discount-rules`）、`resources/read --uri orderhub://discount-rules`（內容跟我寫的 markdown 一致，Standard/Silver/Gold 對應 `OrderService.GetDiscountRate` 的 0%/5%/10%）、`prompts/list`（看到 `low_stock_report` 帶 `threshold` 參數說明）、`prompts/get --prompt-name low_stock_report --prompt-args threshold=5`（展開後的訊息裡 `threshold=5` 確實被代入文字）。這裡踩過一個坑：第一次直接對 `dotnet run --project src/OrderHub.Mcp --method resources/list` 下指令，`--method` 被 `dotnet run` 自己的參數解析吃掉，回報「找不到專案」；換成先 `dotnet build` 再指向編譯出來的 `OrderHub.Mcp.exe` 就正常了。
+- Claude Code 裡用 `@` 選 resource、用 `/mcp__orderhub__low_stock_report` 這兩步是互動式操作（要在自己的 session 按 `/mcp` reconnect 後手動選/打），沒有在這次對話裡由 agent 代勞，留給我自己之後照練習步驟 4c 驗證清單跑一次。
+- 想法（5c 第 3 點）：
+  - 折扣規則用 Resource 給 vs 讓 agent 自己去讀 `OrderService.cs`：Resource 是團隊共用、版本控制的**一份摘要**，agent 不用理解 C# 分層（Service/Repository）、不用先找到檔案在哪就能拿到規則；直接讀原始碼雖然是唯一真相，但代價是每次都要重新定位程式碔、且更容易被無關的實作細節干擾。代價是 Resource 的內容是我手動抄一份 markdown 字串，`GetDiscountRate` 的折扣數字改了不會自動反映到 resource 上——這跟練習 1「金額別自己算」是同一個坑，示範版本直接寫死字串，正式做法應該讓 `DiscountRules()` 動態從 `GetDiscountRate` 組字串出來，只有一份真相。
+  - Prompt 範本放 server vs 每個人自己打一段話：放 server 是**一次寫好、全隊透過同一個 slash command 共用**，範本措辞（例如「用 low_stock 工具查、再用其他工具了解訂單狀況、輸出表格含 SKU/建議補貨量/理由」）改一次全隊同步拿到新版；每個人自己打的話，問法、字眼、有沒有先查 low_stock 都不一樣，且沒有地方能沉澱「這樣問效果比較好」的經驗給下一個人複用。
+
 ---
