@@ -53,7 +53,7 @@ public class OrderHubTools(IOrderService orderService, IProductRepository produc
         };
         return JsonSerializer.Serialize(result, Json);
     }
-
+      
     [McpServerTool(ReadOnly = true), Description("列出庫存低於門檻且仍在販售的商品，依庫存量升冪排序")]
     public async Task<string> LowStock([Description("庫存門檻，預設 10")] int threshold = 10)
     {
